@@ -1,11 +1,28 @@
+import os
+import json
+import boto3
+
+sfn = boto3.client('stepfunctions')
+
 def handler(event, context):
-  import os
+    # Debugging logs
+    print(f"Triggering Step Function with Bucket: {os.environ['BUCKET']}, Key: {os.environ['KEY']}")
 
-  import boto3
+    execution_input = json.dumps({
+        "collection_url": os.environ["COLLECTION_URL"],
+        "s3": {
+            "Bucket": os.environ["BUCKET"],
+            "Key": os.environ["KEY"]
+        }
+    })
 
-  sfn = boto3.client('stepfunctions')
-  sfn.start_execution(
-      stateMachineArn=os.environ['STATE_MACHINE_ARN'],
-      name='CDKTriggeredExecution',
-      input=f'{{"collection_url": "{os.environ["COLLECTION_URL"]}"}}'
-  )
+    sfn.start_execution(
+        stateMachineArn=os.environ['STATE_MACHINE_ARN'],
+        name='CDKTriggeredExecution',
+        input=execution_input
+    )
+
+    # return {
+    #     "statusCode": 200,
+    #     "body": json.dumps({"message": "Step Function triggered", "response": response})
+    # }

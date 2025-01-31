@@ -1,46 +1,59 @@
 
-# Welcome to your CDK Python project!
+# OSDP Prototype Stack (CDK)
 
-This is a blank project for CDK development with Python.
+
+### Setup
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
-
-To manually create a virtualenv on MacOS and Linux:
+To manually create a virtualenv
 
 ```
 $ python3 -m venv .venv
 ```
 
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
+Aactivate your virtualenv.
 
 ```
 $ source .venv/bin/activate
 ```
 
-If you are a Windows platform, you would activate the virtualenv like this:
+Install the required dependencies.
 
 ```
-% .venv\Scripts\activate.bat
+$ pip install -r requirements.txt requirements-dev.txt
 ```
 
-Once the virtualenv is activated, you can install the required dependencies.
-
-```
-$ pip install -r requirements.txt
-```
-
-At this point you can now synthesize the CloudFormation template for this code.
+Synthesize the CloudFormation template for this code (login to AWS account first).
 
 ```
 $ cdk synth
+```
+
+To deploy the stack to AWS.
+
+```
+$ cdk deploy
+``` 
+
+### Testing
+
+To run the tests.
+
+```
+$ pytest
+```
+
+### Style 
+
+```
+$ ruff check .
+```
+
+or 
+
+```
+$ ruff check --fix .
 ```
 
 To add additional dependencies, for example other CDK libraries, just add

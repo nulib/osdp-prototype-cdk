@@ -33,6 +33,7 @@ from aws_cdk import (
 from aws_cdk import (
     aws_stepfunctions_tasks as sfn_tasks,
 )
+from aws_cdk import Tags
 from constructs import Construct
 
 ECR_REPO = "arn:aws:ecr:us-east-1:625046682746:repository/osdp-iiif-fetcher"
@@ -42,6 +43,9 @@ COLLECTION_URL = os.getenv("COLLECTION_URL", "https://api.dc.library.northwester
 class OsdpPrototypeStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        # ✅ Apply tag to all resources in this stack
+        Tags.of(self).add("project", "imls-grant")
 
         # Hello World Function
         # This is a standin for our API at the moment
@@ -245,12 +249,6 @@ class OsdpPrototypeStack(Stack):
             ),
         )
 
-        # First define the success and failure states
-        success = sfn.Succeed(self, "TaskCompleted")
-        _failure = sfn.Fail(
-            self, "TaskFailed", error="TaskFailedError", cause="Task execution failed"
-        )
-
         # Create the ECS Run Task state
         run_task = sfn_tasks.EcsRunTask(
             self,
@@ -276,19 +274,117 @@ class OsdpPrototypeStack(Stack):
                 platform_version=ecs.FargatePlatformVersion.LATEST
             ),
             propagated_tag_source=ecs.PropagatedTagSource.TASK_DEFINITION,
+            result_path="$.task_result" # I think this can be removed
         )
 
-        # Create a chain that includes error handling
-        definition = sfn.Chain.start(run_task)
-        definition = definition.next(success)
+        # Lambda function for processing orders
+        fetch_iiif_manifest_function = _lambda.Function(
+            self, "fetch_iiif_manifest_function",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="index.handler",
+            code=_lambda.Code.from_asset("./functions/get_iiif_manifest"),
+            timeout=Duration.seconds(120)
+        )
 
-        # Finally create the state machine with error handling
+        # Grant the Lambda function read access to S3
+        manifest_bucket.grant_read(fetch_iiif_manifest_function)
+
+        # IAM Role for Step Functions to access S3 and invoke Lambda
+        step_functions_role = iam.Role(
+            self,
+            "StepFunctionsExecutionRole",
+            assumed_by=iam.ServicePrincipal("states.amazonaws.com"),
+        )
+
+        step_functions_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["s3:ListBucket", "s3:GetObject"],
+                resources=[
+                    manifest_bucket.bucket_arn,  
+                    manifest_bucket.arn_for_objects("*"),  
+                ],
+            )
+        )
+
+        step_functions_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["lambda:InvokeFunction"],
+                resources=[fetch_iiif_manifest_function.function_arn],
+            )
+        )
+
+        # Lambda permission to allow invocation from Step Functions
+        fetch_iiif_manifest_function.add_permission(
+            "AllowStepFunctionsInvoke",
+            principal=iam.ServicePrincipal("states.amazonaws.com"),
+        )
+
+        # Define Distributed Map with ItemReader using a raw JSON state definition
+        distributed_map_state = sfn.CustomState(
+            self,
+            "DistributedMapWithItemReader",
+            state_json={
+                "Type": "Map",
+                "ItemReader": {
+                    "Resource": "arn:aws:states:::s3:getObject",
+                    "ReaderConfig": {
+                        "InputType": "CSV",
+                        "CSVHeaderLocation": "GIVEN",
+                        "CSVHeaders": [
+                            "uri"
+                        ]
+                    },
+                    "Parameters": {
+                        "Bucket.$": "$.s3.Bucket",  
+                        "Key.$": "$.s3.Key"  
+                    }
+                },
+                "MaxConcurrency": 1,
+                "ItemProcessor": {
+                    "ProcessorConfig": {
+                        "Mode": "DISTRIBUTED",
+                        "ExecutionType": "STANDARD"
+                    },
+                    "StartAt": "InvokeLambdaProcessor",
+                    "States": {
+                        "InvokeLambdaProcessor": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Parameters": {
+                                "FunctionName": fetch_iiif_manifest_function.function_arn,
+                                "Payload": {
+                                    "row": sfn.JsonPath.string_at("$$.Map.Item.Value")
+                                }
+                            },
+                            "End": True
+                        }
+                    }
+                }
+            },
+        )
+
+        # First define the success and failure states
+        success = sfn.Succeed(self, "TaskCompleted")
+        _failure = sfn.Fail(self, "TaskFailed", error="TaskFailedError", cause="Task execution failed")
+
+        definition = run_task.next(distributed_map_state).next(success)
         state_machine = sfn.StateMachine(
-            self, "OsdpStackSpinup", definition=definition
+            self, "OsdpStackSpinup", 
+            definition=definition,
+            timeout=Duration.minutes(5),
+            role=step_functions_role
         )
 
-        # Add this after your state machine creation
-        triggers.TriggerFunction(
+        # Permissions are too broad for now
+        step_functions_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["states:StartExecution"],
+                resources=[f"arn:aws:states:{self.region}:{self.account}:stateMachine:*"],
+            )
+        )
+
+         # Add a Lambda trigger for Step Functions execution
+        step_function_trigger = triggers.TriggerFunction(
             self,
             "TriggerStepFunction",
             runtime=_lambda.Runtime.PYTHON_3_9,
@@ -296,15 +392,21 @@ class OsdpPrototypeStack(Stack):
             environment={
                 "STATE_MACHINE_ARN": state_machine.state_machine_arn,
                 "COLLECTION_URL": COLLECTION_URL,
+                "BUCKET": manifest_bucket.bucket_name,
+                "KEY": "manifests.csv"
             },
             code=_lambda.Code.from_asset("./functions/step_function_trigger"),
-            # Grant permission to start Step Function execution
             timeout=Duration.minutes(1),
             initial_policy=[
                 iam.PolicyStatement(
                     actions=["states:StartExecution"],
                     resources=[state_machine.state_machine_arn],
                 )
-            ],
+            ]
         )
+
+        # Ensure trigger_function executes AFTER these resources are provisioned
+        step_function_trigger.execute_after(state_machine)
+        step_function_trigger.execute_after(manifest_bucket)
+        step_function_trigger.execute_after(fetch_iiif_manifest_function)
 
