@@ -1,16 +1,38 @@
+import pytest
 import aws_cdk as core
 import aws_cdk.assertions as assertions
 
-from osdp_cdk import OsdpPrototypeStack
+from osdp_cdk.osdp_prototype_stack import OsdpPrototypeStack
 
-
-# example tests. To run these tests, uncomment this file along with the example
-# resource in source/source_stack.py
-def test_sqs_queue_created():
+@pytest.fixture
+def stack_template():
     app = core.App()
     stack = OsdpPrototypeStack(app, "OsdpPrototypeStack")
-    _template = assertions.Template.from_stack(stack)
+    template = assertions.Template.from_stack(stack)
+    return template  # Return the template object directly
 
-#     template.has_resource_properties("AWS::SQS::Queue", {
-#         "VisibilityTimeout": 300
-#     })
+def test_ui_bucket_created():
+    stack_template.has_resource_properties("AWS::S3::Bucket", {
+        "BucketName": "osdp-ui-bucket"
+    })
+
+    stack_template.has_output("WebsiteURL", {
+        "Value": "osdp-ui-bucket.s3-website-us-east-1.amazonaws.com"
+    })
+
+def test_build_function_created():
+    stack_template.has_resource_properties("AWS::Lambda::Function", {
+        "FunctionName": "BuildFunction"
+    })
+
+def test_build_function_triggers_created():
+    stack_template.has_resource_properties("AWS::Events::Rule", {
+        "EventPattern": {
+            "Source": ["aws.events"]
+        }
+    })
+
+
+
+
+
