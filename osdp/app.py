@@ -5,6 +5,7 @@ import sys
 import aws_cdk as cdk
 
 from pipeline.pipeline_stack import PipelineStack
+from stacks.knowledge_base_stack import BedrockKnowledgeBaseStack
 from stacks.osdp_prototype_stack import OsdpPrototypeStack
 
 # Initialize the CDK app which loads the built-in context (from cdk.json and CLI)
@@ -50,4 +51,9 @@ OsdpPrototypeStack(
 PipelineStack(app, "OsdpPipelineStack",
     env=cdk.Environment(account="625046682746", region="us-east-1")
 )
+BedrockKnowledgeBaseStack(app, "OsdpKnowledgeBaseStack",
+    env=cdk.Environment(account=os.getenv('CDK_DEFAULT_ACCOUNT'), 
+                        region=os.getenv('CDK_DEFAULT_REGION'))
+)
+
 app.synth()
