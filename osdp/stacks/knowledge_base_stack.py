@@ -45,7 +45,7 @@ class BedrockKnowledgeBaseStack(Stack):
             peer=ec2.Peer.ipv4(vpc.vpc_cidr_block),
             connection=ec2.Port.tcp(5432),
             description="Allow Bedrock to connect to PostgreSQL"
-        )
+        ),
 
         # Create database credentials in Secrets Manager
         db_credentials = secretsmanager.Secret(
@@ -133,22 +133,25 @@ class BedrockKnowledgeBaseStack(Stack):
 
         # Create role with password
         db_init2_role = cr.AwsCustomResource(
-            self, "DBInit2Role",
-            on_create=cr.AwsSdkCall(
-                service="RDSDataService",
-                action="executeStatement",
-                parameters={
-                    "secretArn": db_credentials.secret_arn,
-                    "database": "postgres",
-                    "resourceArn": db_cluster.cluster_arn,
-                    "sql": "CREATE ROLE bedrock_user WITH LOGIN PASSWORD :password",
-                    "parameters": [{
-                        "name": "password",
-                        "value": {"stringValue": db_credentials.secret_value_from_json('password').unsafe_unwrap()}
-                    }]
-                },
-                physical_resource_id=cr.PhysicalResourceId.of("DBInit-2-Role")
-            ),
+                    self, "DBInit2Role",
+                    on_create=cr.AwsSdkCall(
+                        service="RDSDataService",
+                        action="executeStatement",
+                        parameters={
+                            "secretArn": db_credentials.secret_arn,
+                            "database": "postgres",
+                            "resourceArn": db_cluster.cluster_arn,
+                            "sql": f"""
+                                    DO $$ 
+                                    BEGIN 
+                                        CREATE ROLE bedrock_user WITH LOGIN PASSWORD '{db_credentials.secret_value_from_json('password').unsafe_unwrap()}'; 
+                                    EXCEPTION WHEN duplicate_object THEN 
+                                        RAISE NOTICE 'Role already exists'; 
+                                    END $$;
+                                """
+                        },
+                        physical_resource_id=cr.PhysicalResourceId.of("DBInit-2-Role")
+                    ),
             policy=cr.AwsCustomResourcePolicy.from_statements([
                 iam.PolicyStatement(
                     actions=["rds-data:ExecuteStatement"],
@@ -193,8 +196,10 @@ class BedrockKnowledgeBaseStack(Stack):
         db_init2_grant.node.add_dependency(db_init2_role)
 
         # Create table and index
-        db_init3 = cr.AwsCustomResource(
-            self, "DBInit3",
+
+        # Create table
+        db_init3_table = cr.AwsCustomResource(
+            self, "DBInit3Table",
             on_create=cr.AwsSdkCall(
                 service="RDSDataService",
                 action="executeStatement",
@@ -209,11 +214,38 @@ class BedrockKnowledgeBaseStack(Stack):
                             chunks text,
                             metadata jsonb
                         );
+                    """
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("DBInit-3-Table")
+            ),
+            policy=cr.AwsCustomResourcePolicy.from_statements([
+                iam.PolicyStatement(
+                    actions=["rds-data:ExecuteStatement"],
+                    resources=[db_cluster.cluster_arn]
+                ),
+                iam.PolicyStatement(
+                    actions=["secretsmanager:GetSecretValue"],
+                    resources=[db_credentials.secret_arn]
+                )
+            ])
+        )
+
+        # Create index
+        db_init3_index = cr.AwsCustomResource(
+            self, "DBInit3Index",
+            on_create=cr.AwsSdkCall(
+                service="RDSDataService",
+                action="executeStatement",
+                parameters={
+                    "secretArn": db_credentials.secret_arn,
+                    "database": "postgres",
+                    "resourceArn": db_cluster.cluster_arn,
+                    "sql": """
                         CREATE INDEX IF NOT EXISTS embedding_idx ON bedrock_integration.bedrock_knowledge_base 
                             USING hnsw (embedding vector_l2_ops);
                     """
                 },
-                physical_resource_id=cr.PhysicalResourceId.of("DBInit-3")
+                physical_resource_id=cr.PhysicalResourceId.of("DBInit-3-Index")
             ),
             policy=cr.AwsCustomResourcePolicy.from_statements([
                 iam.PolicyStatement(
@@ -228,7 +260,8 @@ class BedrockKnowledgeBaseStack(Stack):
         )
 
         # Add dependencies to ensure proper order
-        db_init3.node.add_dependency(db_init2_grant)
+        db_init3_table.node.add_dependency(db_init2_grant)
+        db_init3_index.node.add_dependency(db_init3_table)
 
         # Ensure proper dependency order
         db_init.node.add_dependency(db_cluster)
