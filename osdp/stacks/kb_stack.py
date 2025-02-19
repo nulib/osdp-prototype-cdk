@@ -116,31 +116,6 @@ class KBStack(Stack):
                 type="VECTOR",
                 vector_knowledge_base_configuration=bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
                     embedding_model_arn="arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-multilingual-v3",
-
-                    # Add S3 data source configuration
-                    # data_source=bedrock.CfnKnowledgeBase.DataSourceProperty(
-                    #     data_source_configuration=bedrock.CfnKnowledgeBase.DataSourceConfigurationProperty(
-                    #         s3_configuration=bedrock.CfnKnowledgeBase.S3DataSourceConfigurationProperty(
-                    #             bucket_arn=data_bucket.bucket_arn,
-                    #             inclusion_prefixes=["iiif/"],
-                    #             generated_text_field="chunks",
-                    #             metadata_field="metadata"
-                    #         )
-                    #     )
-                    # ),
-                    
-                    # S3 supplemental configuration 
-                    # (storage location of the images extracted from multimodal documents)
-                    # supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
-                    #     supplemental_data_storage_locations=[
-                    #         bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
-                    #             supplemental_data_storage_location_type="S3",
-                    #             s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
-                    #                 uri=f"s3://{data_bucket.bucket_name}/kb-supplemental"  # TODO Replace 
-                    #             )
-                    #         )
-                    #     ]
-                    # )
                 )
             ),
 
@@ -168,8 +143,6 @@ class KBStack(Stack):
                 type="S3",
                 s3_configuration=bedrock.CfnDataSource.S3DataSourceConfigurationProperty(
                     bucket_arn=data_bucket.bucket_arn,
-
-                    # the properties below are optional
                     inclusion_prefixes=["iiif/"]
                 ),
             ),
