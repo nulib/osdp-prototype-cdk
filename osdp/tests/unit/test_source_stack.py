@@ -12,6 +12,7 @@ def stack_and_template():
     app.node.set_context("stack_prefix", "alice")
     app.node.set_context("tags", {"foo": "bar", "environment": "dev"})
     app.node.set_context("collection_url", "http://example.com")
+    app.node.set_context("aws:cdk:bundling-stacks", [])  # Disable bundling to speed up tests
     stack = OsdpPrototypeStack(app, "alice-OSDP-Prototype", env={"account": "123456789012", "region": "us-east-1"})
     template = assertions.Template.from_stack(stack)
     return stack, template
@@ -84,6 +85,43 @@ def test_build_function_created(stack_and_template):
                 }
             },
         },
+    )
+
+
+def test_function_invoker_role_not_created(stack_and_template):
+    stack, template = stack_and_template
+
+    template.resource_properties_count_is(
+        "AWS::IAM::Role",
+        {
+            "RoleName": "UIBuildFunctionInvokeRole",
+        },
+        0,
+    )
+
+
+def test_function_invoker_role_created():
+    app = core.App()
+    app.node.set_context("stack_prefix", "alice")
+    app.node.set_context("tags", {"foo": "bar", "environment": "dev"})
+    app.node.set_context("collection_url", "http://example.com")
+    app.node.set_context("aws:cdk:bundling-stacks", [])  # Disable bundling to speed up tests
+    foo = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+    print(foo)
+    stack = OsdpPrototypeStack(
+        app,
+        "alice-OSDP-Prototype",
+        ui_function_invoke_arn=foo,
+        env={"account": "123456789012", "region": "us-east-1"},
+    )
+    template = assertions.Template.from_stack(stack)
+
+    template.resource_properties_count_is(
+        "AWS::IAM::Role",
+        {
+            "RoleName": "UIBuildFunctionInvokeRole",
+        },
+        1,
     )
 
 
