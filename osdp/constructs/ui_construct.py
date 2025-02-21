@@ -69,8 +69,38 @@ class AmplifyAuthContext:
 
 
 class UIConstruct(Construct):
+    """
+    Construct for the OSDP UI hosted on AWS Amplify.
+
+    This construct creates an Amplify app and branch, and a Lambda function to build and deploy the UI.
+
+    Attributes:
+        amplify_app (amplify.App): The Amplify app created by this construct.
+        amplify_branch (amplify.Branch): The Amplify branch created by this construct.
+        build_function (_lambda.Function): The Lambda function that builds and deploys the UI.
+        build_function_url (str): The URL for the build function.
+        function_invoker_principal (Optional[iam.WebIdentityPrincipal]): Principle that can invoke the build function.
+        function_invoker_role (Optional[iam.Role]): The role that can invoke the build function.
+
+    Args:
+        scope (Construct): The parent construct.
+        id (str): The construct ID.
+        stack_id (str): The unique ID for the stack.
+        api_url (str): The URL of the API to be included in the UI build.
+        auth_context (AmplifyAuthContext): The authentication values for the UI retrieved from the CDK context.
+        function_invoke_arn (Optional[str]): The ARN of the role that can invoke the build function.
+    """
+
     def __init__(
-        self, scope: Construct, id: str, *, stack_id: str, api_url: str, auth_context: AmplifyAuthContext, **kwargs
+        self,
+        scope: Construct,
+        id: str,
+        *,
+        stack_id: str,
+        api_url: str,
+        auth_context: AmplifyAuthContext,
+        function_invoke_arn: Optional[str] = None,
+        **kwargs,
     ) -> None:
         super().__init__(scope, id)
 
@@ -153,6 +183,25 @@ class UIConstruct(Construct):
         self.build_function_url = self.build_function.add_function_url(
             auth_type=_lambda.FunctionUrlAuthType.AWS_IAM,
         )
+
+        if function_invoke_arn:
+            self.function_invoker_principal = iam.WebIdentityPrincipal(function_invoke_arn)
+            self.function_invoker_role = iam.Role(
+                self,
+                "UIBuildFunctionInvokeRole",
+                assumed_by=self.function_invoker_principal,
+                role_name="UIBuildFunctionInvokeRole",
+            )
+
+            self.function_invoker_role.add_to_policy(
+                iam.PolicyStatement(
+                    actions=["lambda:InvokeFunctionUrl"],
+                    resources=[self.build_function.function_arn],
+                )
+            )
+            self.build_function.add_permission(
+                "BuildFunctionInvokePermission", principal=self.function_invoker_role, action="lambda:InvokeFunctionUrl"
+            )
 
         self.build_function.node.add_dependency(self.amplify_app)
 

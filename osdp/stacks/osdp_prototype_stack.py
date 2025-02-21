@@ -1,3 +1,5 @@
+from typing import Optional
+
 from aws_cdk import (
     Fn,
     RemovalPolicy,
@@ -19,7 +21,9 @@ ECR_IMAGE = "625046682746.dkr.ecr.us-east-1.amazonaws.com/osdp-iiif-fetcher:late
 
 
 class OsdpPrototypeStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(
+        self, scope: Construct, construct_id: str, ui_function_invoke_arn: Optional[str] = None, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Retrieve the 'tags' context value (expected to be a dict)
@@ -34,15 +38,16 @@ class OsdpPrototypeStack(Stack):
         suffix = Fn.select(4, Fn.split("-", unique_id))
 
         # Create the API
-        api_construct = ApiConstruct(self, "ApiConstruct")
+        self.api_construct = ApiConstruct(self, "ApiConstruct")
 
         # Create the UI
-        _ui_construct = UIConstruct(
+        self.ui_construct = UIConstruct(
             self,
             "UIConstruct",
             stack_id=suffix,
-            api_url=api_construct.api_url.url,
+            api_url=self.api_construct.api_url.url,
             auth_context=AmplifyAuthContext(self),
+            function_invoke_arn=ui_function_invoke_arn,
         )
 
         # S3 bucket for the IIIF Manifests (and other data)
