@@ -79,7 +79,7 @@ class UIConstruct(Construct):
         amplify_branch (amplify.Branch): The Amplify branch created by this construct.
         build_function (_lambda.Function): The Lambda function that builds and deploys the UI.
         build_function_url (str): The URL for the build function.
-        function_invoker_principle (Optional[iam.WebIdentityPrincipal]): Principle that can invoke the build function.
+        function_invoker_principal (Optional[iam.WebIdentityPrincipal]): Principle that can invoke the build function.
         function_invoker_role (Optional[iam.Role]): The role that can invoke the build function.
 
     Args:
@@ -185,11 +185,11 @@ class UIConstruct(Construct):
         )
 
         if function_invoke_arn:
-            self.function_invoker_principle = iam.WebIdentityPrincipal(function_invoke_arn)
+            self.function_invoker_principal = iam.WebIdentityPrincipal(function_invoke_arn)
             self.function_invoker_role = iam.Role(
                 self,
                 "UIBuildFunctionInvokeRole",
-                assumed_by=self.function_invoker_principle,
+                assumed_by=self.function_invoker_principal,
                 role_name="UIBuildFunctionInvokeRole",
             )
 

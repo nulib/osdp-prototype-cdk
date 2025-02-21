@@ -12,9 +12,9 @@ class OsdpApplicationStage(Stage):
 
         stack = OsdpPrototypeStack(self, "OSDP-Prototype", ui_function_invoke_arn=github_action_arn)
 
-        if stack.ui_construct.function_invoker_principle:
+        if stack.ui_construct.function_invoker_principal:
             # For staging deploy, restrict the function to only be invoked by our GitHub Action
-            stack.ui_construct.function_invoker_principle.with_conditions(
+            stack.ui_construct.function_invoker_principal.with_conditions(
                 {
                     "StringLike": {
                         "token.actions.githubusercontent.com:sub": "repo:nulib/osdp-prototype-ui:*"
