@@ -23,12 +23,10 @@ class PipelineStack(cdk.Stack):
             "Synth",
             input=source,
             commands=[
-                "cd osdp",
-                "pip install -r requirements.txt -r requirements-dev.txt",
                 "npm install -g aws-cdk",
-                "cd functions/build_function",
-                "npm install",
-                "cd ../../",
+                "pip install uv",
+                "uv sync --no-dev",
+                "cd osdp",
                 "cdk --version",
                 f"cdk synth -c stack_prefix={stack_prefix}",
             ],
@@ -48,7 +46,7 @@ class PipelineStack(cdk.Stack):
             pipelines.ShellStep(
                 "Lint",
                 input=source,
-                commands=["cd osdp", "pip install -r requirements-dev.txt", "ruff check ."],
+                commands=["pip install uv", "uv sync --only-dev", "ruff check ."],
             )
         )
 
@@ -56,7 +54,7 @@ class PipelineStack(cdk.Stack):
             pipelines.ShellStep(
                 "Style",
                 input=source,
-                commands=["cd osdp", "pip install -r requirements-dev.txt", "ruff format --check ."],
+                commands=["pip install uv", "uv sync --only-dev", "ruff format --check ."],
             )
         )
 
@@ -65,9 +63,10 @@ class PipelineStack(cdk.Stack):
                 "Test",
                 input=source,
                 commands=[
-                    "cd osdp",
-                    "pip install -r requirements.txt -r requirements-dev.txt",
                     "npm install -g aws-cdk",
+                    "pip install uv",
+                    "uv sync",
+                    "cd osdp",
                     "pytest -vv tests/",
                 ],
             )
