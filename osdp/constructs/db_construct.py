@@ -17,7 +17,6 @@ from aws_cdk import (
 from aws_cdk import (
     custom_resources as cr,
 )
-
 from constructs import Construct
 
 

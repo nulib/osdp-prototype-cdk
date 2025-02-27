@@ -2,7 +2,6 @@
 from aws_cdk import CfnOutput
 from aws_cdk import aws_bedrock as bedrock
 from aws_cdk import aws_iam as iam
-
 from constructs import Construct
 
 

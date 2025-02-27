@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import aws_cdk as cdk
 from aws_cdk import SecretValue, pipelines
-
 from constructs import Construct
 from pipeline.osdp_application_stage import OsdpApplicationStage
 
