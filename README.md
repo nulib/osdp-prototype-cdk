@@ -3,24 +3,43 @@
 
 ## Quick start 🚀
 
-0\) Prerequisites
+### Prerequisites
 
 To get started you will need to have the following installed:
 
-- Python 3.10.5
+- `uv` ([installation instructions](https://github.com/astral-sh/uv))
 - AWS cdk cli (see [install instructions)](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html))
 
-Ensure you are using Python 3.10.5:
+> [!NOTE]
+> If you don't have `uv` installed (or don't want to), see [alternate instructions](#install-uv-with-python) below.
+
+### Install
+
+Run the following commands:
+
+```bash
+uv venv
+uv sync
+```
+
+### Deploy
+
+Run the deploy command with a required `stack_prefix`:
+
+```bash
+cd osdp && cdk deploy -c stack_prefix=my_awesome_stack
+```
+
+### Install `uv` with Python
+
+To install `uv` locally
+
+Ensure you are using Python 3.10:
 
 ```bash
 python --version
 # Python 3.10.5
 ```
-
-> [!NOTE]
-> If you have `uv` already installed run `uv venv` and skip to step 3
-
-1\) Virtual environment
 
 Create a virtual environment:
 
@@ -28,34 +47,22 @@ Create a virtual environment:
 python -m venv .venv
 ```
 
-And activate it:
+Activate it:
 
 ```bash
 source .venv/bin/activate
 ```
 
-2\) Install `uv`
-
-Install `uv` locally:
+Install `uv` within the virutual environment:
 
 ```bash
 pip install uv
 ```
 
-3\) Install dependencies
-
-Install dependencies using
+Install dependencies:
 
 ```bash
 uv sync
-```
-
-4\) Deploy
-
-Run the deploy command with a required `stack_prefix`:
-
-```bash
-cd osdp && cdk deploy -c stack_prefix=my_awesome_stack
 ```
 
 ## Development 🛠️
