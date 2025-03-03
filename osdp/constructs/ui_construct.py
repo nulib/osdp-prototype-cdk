@@ -7,7 +7,6 @@ from aws_cdk import aws_iam as iam
 from aws_cdk import (
     aws_lambda as _lambda,
 )
-
 from constructs import Construct
 
 

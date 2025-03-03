@@ -18,7 +18,6 @@ from aws_cdk import (
 from aws_cdk import (
     aws_stepfunctions_tasks as sfn_tasks,
 )
-
 from constructs import Construct
 
 

@@ -2,7 +2,6 @@ import aws_cdk as core
 import aws_cdk.assertions as assertions
 import aws_cdk.aws_iam as iam
 import pytest
-
 from stacks.osdp_prototype_stack import OsdpPrototypeStack
 
 

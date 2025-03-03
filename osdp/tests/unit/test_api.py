@@ -1,7 +1,6 @@
 import aws_cdk as core
 import aws_cdk.assertions as assertions
 import pytest
-
 from stacks.osdp_prototype_stack import OsdpPrototypeStack
 
 STACK_PREFIX = "alice"

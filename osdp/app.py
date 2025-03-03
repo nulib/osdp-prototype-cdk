@@ -3,7 +3,6 @@ import os
 import sys
 
 import aws_cdk as cdk
-
 from pipeline.pipeline_stack import PipelineStack
 from stacks.osdp_prototype_stack import OsdpPrototypeStack
 

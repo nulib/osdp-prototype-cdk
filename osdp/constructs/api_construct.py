@@ -19,7 +19,6 @@ from aws_cdk import (
 from aws_cdk import (
     aws_lambda as _lambda,
 )
-
 from constructs import Construct
 
 
