@@ -141,4 +141,3 @@ class ApiConstruct(Construct):
 
         # Add API Gateway URL to outputs
         CfnOutput(self, "ApiUrl", value=self.api.url)
-        CfnOutput(self, "AllowedOrigins", value=",".join(allowed_origins))

@@ -7,6 +7,7 @@ from aws_cdk import aws_iam as iam
 from aws_cdk import (
     aws_lambda as _lambda,
 )
+from aws_cdk import aws_route53 as route53
 from constructs import Construct
 
 
@@ -47,9 +48,28 @@ class UIConstruct(Construct):
         super().__init__(scope, id)
 
         stack = Stack.of(self)
+        self.is_staging = stack.stack_name.startswith("staging-")
         app_branch_name = "main"
 
         self.amplify_branch = amplify_app.add_branch(app_branch_name, stage="PRODUCTION")
+
+        # We will need to change this eventually
+        # It is specific to our internal persistant staging deploy
+        if self.is_staging:
+            hosted_zone = route53.HostedZone.from_lookup(
+                self, "hostedZone", domain_name="rdc-staging.library.northwestern.edu"
+            )
+            domain = amplify_app.add_domain(f"osdp.{hosted_zone.zone_name}")
+            domain.map_root(self.amplify_branch)
+            domain.map_sub_domain(self.amplify_branch, "www")
+            domain.node.add_dependency(amplify_app)
+
+            CfnOutput(
+                self,
+                "StagingAppURL",
+                value=f"https://osdp.{hosted_zone.zone_name}",
+                description="Custom domain URL for NUL staging environment",
+            )
 
         self.build_function = triggers.TriggerFunction(
             self,
