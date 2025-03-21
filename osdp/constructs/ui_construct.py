@@ -95,7 +95,7 @@ class UIConstruct(Construct):
             },
             timeout=Duration.minutes(10),
             memory_size=1024,
-            ephemeral_storage_size=Size.gibibytes(1),
+            ephemeral_storage_size=Size.gibibytes(10),
             initial_policy=[
                 iam.PolicyStatement(
                     actions=["amplify:CreateDeployment", "amplify:StartDeployment"],
