@@ -6,3 +6,4 @@ node_modules/
 .venv
 .ruff_cache
 .vscode/
+.github/copilot-instructions.md
