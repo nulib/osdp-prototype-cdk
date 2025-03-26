@@ -30,9 +30,14 @@ def handler(event, context):
         execution_input["collection_url"] = os.environ["SOURCE"]
         execution_input["s3"]["Key"] = os.environ["KEY"]
     elif workflow_type == "ead":
-        # Use XML prefix for EAD workflow
-        s3Location = os.environ["SOURCE"]
-        execution_input["s3"]["Prefix"] = s3Location.get("prefix")
+        # For EAD workflow, we need the prefix where EAD XML files are stored
+        # This can come from environment variable or from the event
+        if "s3" in event and "Prefix" in event["s3"]:
+            # Use the prefix from the event
+            execution_input["s3"]["Prefix"] = event["s3"]["Prefix"]
+        else:
+            # Default to environment variable
+            execution_input["s3"]["Prefix"] = os.environ["SOURCE"]
     
     # Generate a unique name for this execution
     execution_name = f"{workflow_type}-{uuid.uuid4().hex[:8]}"

@@ -96,12 +96,22 @@ class StepFunctionsConstruct(Construct):
             handler="index.handler",
             code=_lambda.Code.from_asset(
                 "./functions/ead",
+                bundling={
+                    "image": _lambda.Runtime.PYTHON_3_11.bundling_image,
+                    "bundling_file_access": BundlingFileAccess.VOLUME_COPY,
+                    "command": [
+                        "bash",
+                        "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -r . /asset-output",
+                    ],
+                },
             ),
             timeout=Duration.minutes(3),
             environment={
                 "BUCKET": data_bucket.bucket_name,
                 "OUTPUT_PREFIX": "iiif/"
             },
+            memory_size=512,  # Increased memory for handling large EAD files
         )
 
         # Grant the Lambda function read/write access to S3

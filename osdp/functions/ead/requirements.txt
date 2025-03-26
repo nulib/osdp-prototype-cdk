@@ -1,1 +1,1 @@
-eadpy
+eadpy==0.1.2

@@ -1,128 +1,71 @@
 import json
 import os
 import boto3
-import xml.etree.ElementTree as ET
-from datetime import datetime
+from eadpy import Ead
+import uuid
 
-BUCKET = os.environ["BUCKET"]
-OUTPUT_PREFIX = os.environ.get("OUTPUT_PREFIX", "iiif/")
+s3 = boto3.client('s3')
 
-def extract_metadata_from_xml(xml_content):
-    """
-    Extract metadata from EAD XML content and create a structured JSON object
-    """
-    # Parse XML content
-    try:
-        root = ET.fromstring(xml_content)
-        # Create namespace mapping for easier XPath queries
-        namespaces = {'ead': 'urn:isbn:1-931666-22-9'}
-        
-        # Extract key metadata
-        result = {}
-        
-        # Document ID
-        eadid = root.find('.//ead:eadid', namespaces)
-        result['id'] = eadid.text if eadid is not None else "unknown"
-        
-        # Title
-        title = root.find('.//ead:archdesc/ead:did/ead:unittitle', namespaces)
-        result['title'] = title.text if title is not None else ""
-        
-        # Date range
-        unitdate = root.find('.//ead:archdesc/ead:did/ead:unitdate', namespaces)
-        if unitdate is not None:
-            result['dateRange'] = unitdate.text
-            if 'normal' in unitdate.attrib:
-                result['normalizedDate'] = unitdate.attrib['normal']
-        
-        # Abstract/description
-        abstract = root.find('.//ead:archdesc/ead:did/ead:abstract', namespaces)
-        result['abstract'] = abstract.text if abstract is not None else ""
-        
-        # Repository info
-        repository = root.find('.//ead:archdesc/ead:did/ead:repository/ead:corpname', namespaces)
-        result['repository'] = repository.text if repository is not None else ""
-        
-        # Access restrictions
-        access_restrict = root.find('.//ead:archdesc/ead:accessrestrict/ead:p', namespaces)
-        result['accessRestrictions'] = access_restrict.text if access_restrict is not None else ""
-        
-        # Extract collection contents/items
-        items = []
-        for c01 in root.findall('.//ead:dsc/ead:c01', namespaces):
-            item = {}
-            item_title = c01.find('./ead:did/ead:unittitle', namespaces)
-            item_date = c01.find('./ead:did/ead:unitdate', namespaces)
-            
-            item['title'] = item_title.text if item_title is not None else ""
-            item['date'] = item_date.text if item_date is not None else ""
-            
-            if item_date is not None and 'normal' in item_date.attrib:
-                item['normalizedDate'] = item_date.attrib['normal']
-                
-            items.append(item)
-        
-        result['items'] = items
-        
-        # Add processing metadata
-        result['processingDate'] = datetime.now().isoformat()
-        
-        return result
-        
-    except Exception as e:
-        print(f"Error parsing XML: {e}")
-        return {"error": f"Failed to parse XML: {str(e)}"}
-
-def handler(event, _context):
-    print(f"Received event: {json.dumps(event)}")
+def handler(event, context):
+    print(f"Processing Ead: {event}")
     
-    # Get the S3 object key from the event
-    if 'key' not in event or 'bucket' not in event:
+    # Get bucket and key from event
+    bucket = event.get('bucket')
+    key = event.get('key')
+    
+    if not bucket or not key:
+        print("Missing required parameters: bucket or key")
         return {
-            "statusCode": 400,
-            "body": json.dumps({"message": "Missing required parameters 'bucket' and 'key' in event."})
+            'statusCode': 400,
+            'body': json.dumps('Missing required parameters: bucket or key')
         }
     
-    source_bucket = event['bucket']
-    source_key = event['key']
+    output_prefix = os.environ.get('OUTPUT_PREFIX', 'iiif/')
     
     try:
-        # Download the XML file from S3
-        s3 = boto3.client('s3')
-        response = s3.get_object(Bucket=source_bucket, Key=source_key)
-        xml_content = response['Body'].read().decode('utf-8')
+        # Download the Ead XML file from S3
+        # response = s3.get_object(Bucket=bucket, Key=key)
+        # ead_content = response['Body'].read().decode('utf-8')
+
+        # Changed: Use the correct /tmp directory path and store the full path
+        local_file_name = f"/tmp/{uuid.uuid4().hex}.xml"
+        s3.download_file(bucket, key, local_file_name)
+        print(f"Downloaded file to: {local_file_name}")
         
-        # Process the XML content
-        json_data = extract_metadata_from_xml(xml_content)
+        # Parse the Ead XML using eadpy with the exact same path
+        ead = Ead(local_file_name)
         
-        # Generate output key - preserve part of the original hierarchy but with json extension
-        filename = os.path.basename(source_key).replace('.xml', '.json')
-        output_key = f"{OUTPUT_PREFIX}{filename}"
+        parsed_ead = ead.create_item_chunks()
+        for record in parsed_ead:
+            text = record['text']
+            print("Embedding Text:")
+            for line in text.split('\n'):
+                print(f"  {line}")
+            print("-" * 20)
         
-        # Write the JSON to S3
+        # Save the processed data back to S3
+        output_key = f"{output_prefix}{os.path.basename(key).replace('.xml', '.json')}"
         s3.put_object(
-            Bucket=BUCKET,
+            Bucket=bucket,
             Key=output_key,
-            Body=json.dumps(json_data, ensure_ascii=False),
-            ContentType="application/json"
+            Body=json.dumps(parsed_ead, indent=2),
+            ContentType='application/json'
         )
         
+        print(f"Successfully processed Ead file. Output saved to s3://{bucket}/{output_key}")
+        
         return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "message": "Successfully processed EAD XML and saved JSON",
-                "source": f"{source_bucket}/{source_key}",
-                "destination": f"{BUCKET}/{output_key}"
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': 'Ead file processed successfully',
+                'source': f"s3://{bucket}/{key}",
+                'destination': f"s3://{bucket}/{output_key}"
             })
         }
         
     except Exception as e:
-        print(f"Error processing file {source_key} from bucket {source_bucket}: {e}")
+        print(f"Error processing Ead file: {str(e)}")
         return {
-            "statusCode": 500,
-            "body": json.dumps({
-                "message": "Error processing EAD file",
-                "error": str(e),
-                "source": f"{source_bucket}/{source_key}"
-            })
+            'statusCode': 500,
+            'body': json.dumps(f'Error processing Ead file: {str(e)}')
         }
