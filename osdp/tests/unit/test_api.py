@@ -19,9 +19,7 @@ def stack_and_template():
         "foundation_model_arn", "arn:aws:sagemaker:us-east-1:123456789012:model/bedrock-embedding-model"
     )
     app.node.set_context("aws:cdk:bundling-stacks", [])  # Disable bundling to speed up tests
-    stack = OsdpPrototypeStack(
-        app, "alice-OSDP-Prototype", stack_prefix=STACK_PREFIX, env={"account": "123456789012", "region": "us-east-1"}
-    )
+    stack = OsdpPrototypeStack(app, "alice-OSDP-Prototype", env={"account": "123456789012", "region": "us-east-1"})
     template = assertions.Template.from_stack(stack)
     return stack, template
 

@@ -1,7 +1,9 @@
 
-# OSDP Prototype
+# Treetop Discovery
 
-## Quick start 🚀
+## About the Project
+
+## Getting Started
 
 ### Prerequisites
 
@@ -31,18 +33,94 @@ source .venv/bin/activate
 While logged into aws, verify that it will build:
 
 ```bash
-cd osdp && cdk synth -c stack_prefix=my-awesome-stack
+cd osdp && cdk synth
 ```
 
 > [!IMPORTANT]
 > If cdk cannot locate the python deps, restarting your shell will typically fix it.
 
+### Configuration
+
+Your application configuration values should be provided in a file named `osdp/config.toml`. (An example of the format is provided in `config.toml.example`)
+
+```toml
+stack_prefix = "my-stack"
+embedding_model_arn = ""
+foundation_model_arn = ""
+manifest_fetch_concurrency = 15
+ead_process_concurrency = 10
+
+[data]
+type = "iiif"
+collection_url = "https://api.dc.library.northwestern.edu/api/v2/collections/ecacd539-fe38-40ec-bbc0-590acee3d4f2?as=iiif"
+
+# Alternatively, for EAD data use the following structure for data
+# [data]
+# type = "ead"
+
+# [data.s3]
+# bucket = "my-bucket"
+# prefix = "my-prefix
+
+[tags]
+project = "my-project"
+```
+
+##### Description
+
+- `stack_prefix` (str)(Required) - will be appended to the beginning of the CloudFormation stack on deploy. (*For NU devs this is not needed, it will use the `DEV_PREFIX` env var in AWS.) 
+- `data` (dist)(Required) - Describes either the IIIF collection url or S3 location of EAD source XML files to load on initial app creation.
+- `embedding_model_arn` (str)(Required) - Embedding model to use for Bedrock Knowledgebase
+- `foundation_model_arn` (str)(Required) - Foundation model to use for Bedrock RetreiveAndGenerate invocations
+- `tags` (dict) - Key value pair tags applied to all resources in the stack. 
+- `manifest_fetch_concurrency` (str) - The concurrency to use when retrieving IIIF manifests from your API. 
+- `ead_process_concurrency` (str) - The concurrency to use when processing EAD files. 
+
 ### Deploy
 
-Run the deploy command with a required `stack_prefix`:
+Run the deploy command, providing the name of your stack. (This will be your `stack_prefix` + `_OSDP_Prototype`. It can also be obtained by running `cdk ls`:
 
 ```bash
-cd osdp && cdk deploy -c stack_prefix=my-awesome-stack
+cd osdp && cdk ls
+
+mystack-OSDP-Prototype # <-- it's this one
+OsdpPipelineStack
+OsdpPipelineStack/staging/OSDP-Prototype 
+```
+
+Deploy
+```bash
+cd osdp && cdk deploy mystack-OSDP-Prototype
+```
+
+
+#### Loading additional data
+
+Additional data can be loaded by manually invoking the step function.
+
+* Note that to load EAD data if you had initially run a IIIF load you will need to grant S3 `GetObject` and `ListObjects` permissions to both the state machine and the EAD processing lambda.
+
+Example state machine input for IIIF load:
+```json
+{
+  "workflowType": "iiif",
+  "collection_url": "https://api.dc.library.northwestern.edu/api/v2/collections/ecacd539-fe38-40ec-bbc0-590acee3d4f2?as=iiif",
+  "s3": {
+    "Bucket": "yourstackname-osdp-prototype-xxxxxxxx", 
+    "Key": "manifests.csv"
+  }
+}
+```
+Example state machine input for EAD load: 
+```json
+{
+  "s3": {
+
+    "SourceBucket": "my-bucket",
+    "SourcePrefix": "my-prefix"
+  },
+  "workflowType": "ead"
+}
 ```
 
 ### Install `uv` with Python
@@ -80,7 +158,7 @@ Install dependencies:
 uv sync --all-groups
 ```
 
-## Development 🛠️
+## Development
 
 ### IIIF manifest fetcher docker image
 
@@ -119,114 +197,6 @@ There is one lambda that uses node:
 cd functions/build_function
 npm i
 cd ../../
-```
-
-#### Define context values
-
-Context values are key-value pairs that can be associated with an app, stack, or construct. They may be supplied in the `cdk.json` or or on the command line.
-
-Since the `cdk.json` file is generally committed to source control, it should generally be used for values shared with the team. Anything that needs to be overriden with specific deploys should be supplied on theh command line.
-
-##### Required context values
-
-- `stack_prefix` (str) - will be appended to the beginning of the CloudFormation stack on deploy. (*For NU devs this is not needed, it will use the `DEV_PREFIX` env var in AWS.)
-- `data` (dist)- Describes either the IIIF collection url or S3 location of EAD source XML files.
-Example for IIIF: 
-```json
-"data": {
-    "type": "iiif",
-    "collection_url": "https://api.dc.library.northwestern.edu/api/v2/collections/ecacd539-fe38-40ec-bbc0-590acee3d4f2?as=iiif"
-}
-```
-Example for EAD:
-```json
-"data": {
-    "type": "ead",
-    "s3": {
-        "bucket": "my-bucket",
-        "prefix": "subfolder"
-    }
-}
-```
-- `embedding_model_arn` (str) - Embedding model to use for Bedrock Knowledgebase
-- `foundation_model_arn` (str) - Foundation model to use for Bedrock RetreiveAndGenerate invocations
-
-##### Optional context values
-
-- `tags` (dict) - Key value pair tags applied to all resources in the stack. Example:
-```
-"tags": {
-      "project": "chatbot"
-    },
-```
-- `manifest_fetch_url` (str) - The concurrency to use when retrieving IIIF manifests from your API. If not provided, the default will be used (2).
-
-```bash
-# use default secret name (`OSDPSecrets`)
-cdk deploy
-```
-
-#### Providing context values on the command line
-
-Example:
-```
-cdk deploy -c stack_prefix=alice
-```
-
-#### Synthesize the CloudFormation template (optional)
-
-Synthesize the CloudFormation template for this code (login to AWS account first). You must first log in to AWS with administrator credentials.
-
-```bash
-cdk synth
-```
-
-#### Deploy the CDK app
-
-To deploy the stack to AWS. You must first log in to AWS with administrator credentials using `aws sso login`.
-
-First obtain your stack name. Ex:
-```bash
-cdk ls
-
-yourprefix-OSDP-Prototype #this one is your stack name
-OsdpPipelineStack
-OsdpPipelineStack/staging/OSDP-Prototype (staging-OSDP-Prototype)
-```
-
-Then deploy your stack:
-
-```bash
-cdk deploy yourprefix-OSDP-Prototype
-```
-
-#### Loading additional data
-
-Additional data can be loaded by manually invoking the step function.
-
-*Note that to load EAD data if you had initially run a IIIF load you will need to grant S3 `GetObject` and `ListObjects` permissions to both the state machine and the EAD processing lambda.*
-
-Example state machine input for IIIF load:
-```json
-{
-  "workflowType": "iiif",
-  "collection_url": "https://api.dc.library.northwestern.edu/api/v2/collections/ecacd539-fe38-40ec-bbc0-590acee3d4f2?as=iiif",
-  "s3": {
-    "Bucket": "yourstackname-osdp-prototype-xxxxxxxx", 
-    "Key": "manifests.csv"
-  }
-}
-```
-Example state machine input for EAD load: 
-```json
-{
-  "s3": {
-
-    "SourceBucket": "my-bucket",
-    "SourcePrefix": "my-prefix"
-  },
-  "workflowType": "ead"
-}
 ```
 
 #### Testing

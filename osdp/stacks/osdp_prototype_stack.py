@@ -27,7 +27,6 @@ class OsdpPrototypeStack(Stack):
         self,
         scope: Construct,
         construct_id: str,
-        stack_prefix: str,
         ui_function_invoke_principal: Optional[iam.WebIdentityPrincipal] = None,
         **kwargs,
     ) -> None:
@@ -75,8 +74,7 @@ class OsdpPrototypeStack(Stack):
             embedding_model_arn=self.node.try_get_context("embedding_model_arn"),
             db_cluster=database_construct.db_cluster,
             db_credentials=database_construct.db_credentials,
-            stack_prefix=stack_prefix,
-            db_initialization=database_construct.db_init3_index,
+            db_initialization=database_construct.db_init4_index,
         )
 
         # Create the Amplify app first so we have the id
@@ -100,7 +98,6 @@ class OsdpPrototypeStack(Stack):
             self,
             "ApiConstruct",
             knowledge_base=knowledge_base_construct.knowledge_base,
-            stack_prefix=stack_prefix,
             model_arn=self.node.try_get_context("foundation_model_arn"),
             allowed_origins=[ui_domain, "localhost:3000"],  # TODO change when custom domain?
             amplify_app=amplify_app,

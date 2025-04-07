@@ -2,7 +2,7 @@
 name = "osdp-prototype"
 readme = "README.md"
 version = "0.1.0"
-requires-python = "==3.10.5"
+requires-python = "==3.12.9"
 dependencies = [
     "aws-cdk-aws-amplify-alpha>=2.181.0a0",
     "aws-cdk-lib>=2.181.0",

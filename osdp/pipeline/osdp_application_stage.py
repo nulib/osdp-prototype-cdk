@@ -5,7 +5,7 @@ from stacks.osdp_prototype_stack import OsdpPrototypeStack
 
 
 class OsdpApplicationStage(Stage):
-    def __init__(self, scope: Construct, id: str, stack_prefix: str, **kwargs):
+    def __init__(self, scope: Construct, id: str, **kwargs):
         super().__init__(scope, id, **kwargs)
 
         github_action_arn = f"arn:aws:iam::{self.account}:oidc-provider/token.actions.githubusercontent.com"
@@ -15,4 +15,4 @@ class OsdpApplicationStage(Stage):
             conditions={"StringLike": {"token.actions.githubusercontent.com:sub": "repo:nulib/osdp-prototype-ui:*"}},
         )
 
-        OsdpPrototypeStack(self, "OSDP-Prototype", stack_prefix=stack_prefix, ui_function_invoke_principal=principal)
+        OsdpPrototypeStack(self, "OSDP-Prototype", ui_function_invoke_principal=principal)

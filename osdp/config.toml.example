@@ -1,0 +1,20 @@
+stack_prefix = "my-stack"
+embedding_model_arn = ""
+foundation_model_arn = ""
+manifest_fetch_concurrency = 15
+ead_process_concurrency = 10
+
+[data]
+type = "iiif"
+collection_url = "https://api.dc.library.northwestern.edu/api/v2/collections/ecacd539-fe38-40ec-bbc0-590acee3d4f2?as=iiif"
+
+# Alternatively, for EAD data use the following structure
+# [data]
+# type = "ead"
+
+# [data.s3]
+# bucket = "my-bucket"
+# prefix = "my-prefix
+
+[tags]
+project = "my-project"
