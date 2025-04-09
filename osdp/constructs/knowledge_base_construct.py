@@ -15,11 +15,13 @@ class KnowledgeBaseConstruct(Construct):
         db_cluster: str,
         db_credentials: str,
         embedding_model_arn: str,
-        stack_prefix: str,
         db_initialization: str,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
+
+        # Get stack_prefix from context
+        stack_prefix = self.node.try_get_context("stack_prefix")
 
         # Create IAM role for the Knowledge Base
         kb_role = iam.Role(

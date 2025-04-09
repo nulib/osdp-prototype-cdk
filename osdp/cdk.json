@@ -15,17 +15,6 @@
     ]
   },
   "context": {
-    "data": {
-        "type": "iiif",
-        "collection_url": "https://api.dc.library.northwestern.edu/api/v2/collections/ecacd539-fe38-40ec-bbc0-590acee3d4f2?as=iiif"
-    },
-    "embedding_model_arn": "arn:aws:bedrock:us-east-1::foundation-model/cohere.embed-multilingual-v3",
-    "foundation_model_arn": "arn:aws:bedrock:us-east-1:625046682746:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "manifest_fetch_concurrency": 15,
-    "ead_process_concurrency": 10,
-    "tags": {
-      "project": "imls-grant"
-    },
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
     "@aws-cdk/core:target-partitions": [

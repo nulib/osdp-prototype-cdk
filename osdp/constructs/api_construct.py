@@ -28,13 +28,15 @@ class ApiConstruct(Construct):
         scope: Construct,
         id: str,
         knowledge_base: str,
-        stack_prefix: str,
         model_arn: str,
         amplify_app: amplify.App,
-        allowed_origins: List[str],  # Add this parameter
+        allowed_origins: List[str],
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
+
+        # Get stack_prefix from context
+        stack_prefix = self.node.try_get_context("stack_prefix")
 
         # Create a Cognito User Pool
         self.user_pool = cognito.UserPool(

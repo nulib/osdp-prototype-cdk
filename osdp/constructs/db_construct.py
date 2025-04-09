@@ -60,9 +60,7 @@ class DatabaseConstruct(Construct):
         self.db_cluster = rds.DatabaseCluster(
             self,
             "OsdpKnowledgeBaseDB",
-            engine=rds.DatabaseClusterEngine.aurora_postgres(
-                version=rds.AuroraPostgresEngineVersion.VER_15_3  # Version?
-            ),
+            engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_16_6),
             writer=rds.ClusterInstance.serverless_v2("Writer"),
             vpc=vpc,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
@@ -225,7 +223,7 @@ class DatabaseConstruct(Construct):
             ),
         )
 
-        # Create index
+        # Create index on embedding column
         self.db_init3_index = cr.AwsCustomResource(
             self,
             "DBInit3Index",
@@ -238,8 +236,7 @@ class DatabaseConstruct(Construct):
                     "resourceArn": self.db_cluster.cluster_arn,
                     "sql": """
                         CREATE INDEX IF NOT EXISTS embedding_idx ON bedrock_integration.bedrock_knowledge_base 
-                            USING ivfflat (embedding vector_l2_ops)
-                            WITH (lists = 100);
+                            USING hnsw (embedding vector_cosine_ops);
                     """,
                 },
                 physical_resource_id=cr.PhysicalResourceId.of("DBInit-3-Index"),
@@ -254,9 +251,38 @@ class DatabaseConstruct(Construct):
             ),
         )
 
+        # Create index on chunks column
+        self.db_init4_index = cr.AwsCustomResource(
+            self,
+            "DBInit4Index",
+            on_create=cr.AwsSdkCall(
+                service="RDSDataService",
+                action="executeStatement",
+                parameters={
+                    "secretArn": self.db_credentials.secret_arn,
+                    "database": "postgres",
+                    "resourceArn": self.db_cluster.cluster_arn,
+                    "sql": """
+                        CREATE INDEX IF NOT EXISTS chunks_idx ON bedrock_integration.bedrock_knowledge_base 
+                            USING gin (to_tsvector('simple', chunks));
+                    """,
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("DBInit-4-Index"),
+            ),
+            policy=cr.AwsCustomResourcePolicy.from_statements(
+                [
+                    iam.PolicyStatement(actions=["rds-data:ExecuteStatement"], resources=[self.db_cluster.cluster_arn]),
+                    iam.PolicyStatement(
+                        actions=["secretsmanager:GetSecretValue"], resources=[self.db_credentials.secret_arn]
+                    ),
+                ]
+            ),
+        )
+
         # Add dependencies to ensure proper order
         db_init3_table.node.add_dependency(db_init2_grant)
         self.db_init3_index.node.add_dependency(db_init3_table)
+        self.db_init4_index.node.add_dependency(self.db_init3_index)
 
         # Ensure proper dependency order
         db_init.node.add_dependency(self.db_cluster)

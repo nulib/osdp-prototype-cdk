@@ -17,9 +17,7 @@ def stack_and_template():
         "foundation_model_arn", "arn:aws:sagemaker:us-east-1:123456789012:model/bedrock-embedding-model"
     )
     app.node.set_context("aws:cdk:bundling-stacks", [])  # Disable bundling to speed up tests
-    stack = OsdpPrototypeStack(
-        app, "alice-OSDP-Prototype", stack_prefix="alice", env={"account": "123456789012", "region": "us-east-1"}
-    )
+    stack = OsdpPrototypeStack(app, "alice-OSDP-Prototype", env={"account": "123456789012", "region": "us-east-1"})
     template = assertions.Template.from_stack(stack)
     return stack, template
 
@@ -30,7 +28,7 @@ def test_aurora_cluster_created(stack_and_template):
         "AWS::RDS::DBCluster",
         {
             "Engine": "aurora-postgresql",
-            "EngineVersion": assertions.Match.string_like_regexp("15.3"),
+            "EngineVersion": assertions.Match.string_like_regexp("16.6"),
             "ServerlessV2ScalingConfiguration": {"MinCapacity": 0.5, "MaxCapacity": 8},
             "EnableHttpEndpoint": True,
         },
